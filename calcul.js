@@ -1,5 +1,7 @@
 var csvjson = require("csvjson");
 var fs = require("fs");
+const fetch = require("node-fetch");
+
 var options = {
   delimiter: ";", // optional
   quote: '"' // optional
@@ -7,8 +9,6 @@ var options = {
 var file_data = fs.readFileSync("./bornes-irve.csv", "utf-8");
 let indexFalseData = [];
 let indexUsableData = [];
-let indexUnusableData = [];
-let t = 0;
 var result = csvjson.toObject(file_data, options);
 result.forEach((oneData, index) => {
   checkXlongitudeYlatitude(oneData, index);
@@ -18,12 +18,17 @@ result.forEach((oneData, index) => {
   checkId_station_idPdc(oneData, index);
   checkCode_insee(oneData, index);
   checkNbre_pdc(oneData, index);
+  checkN_operateur(oneData, index);
+  checkDatamaj(oneData, index);
+  // checkSource(oneData, index);
+  check_geo_borne(oneData, index);
 });
-console.log("====================================");
-console.log(indexUsableData.length, indexFalseData);
-console.log(result[1].id_station.includes("FR*"));
-
-console.log("====================================");
+console.log(indexUsableData.length, indexFalseData.length);
+setTimeout(() => {
+  console.log("====================================");
+  console.log(indexUsableData.length, indexFalseData.length);
+  console.log("====================================");
+}, 10000);
 async function checkXlongitudeYlatitude(data, index) {
   if (data.hasOwnProperty("Xlongitude")) {
     if (
@@ -51,14 +56,14 @@ async function checkXlongitudeYlatitude(data, index) {
 
 async function pussance_max(data, index) {
   if (data.hasOwnProperty("puiss_max")) {
-    let regex = /^(\d)(,)?(\d)?( )?(kW|kva){1}$/;
+    let regex = /^[0-9]*(,|\.){1}[0-9]*( )?(kW|kva)?$/;
     if (data.puiss_max === "") {
       if (!indexFalseData.includes(index)) {
         indexFalseData.push(data);
       }
     } else if (data.puiss_max.match(regex) !== null) {
-      if (!indexUnusableData.includes(index)) {
-        indexUnusableData.push(index);
+      if (!indexUsableData.includes(index)) {
+        indexUsableData.push(index);
       }
     }
   }
@@ -66,8 +71,8 @@ async function pussance_max(data, index) {
 async function checkN_amenageur(data, index) {
   if (data.hasOwnProperty("n_amenageur")) {
     if (data.n_amenageur === "") {
-      if (!indexUsableData.includes(index)) {
-        indexUsableData.push(index);
+      if (!indexFalseData.includes(index)) {
+        indexFalseData.push(index);
       }
     }
   }
@@ -75,7 +80,9 @@ async function checkN_amenageur(data, index) {
 async function checkN_operateur(data, index) {
   if (data.hasOwnProperty("n_operateur")) {
     if (data.n_operateur === "") {
-      indexUsableData.push(index);
+      if (!indexFalseData.includes(index)) {
+        indexFalseData.push(index);
+      }
     }
   }
 }
@@ -83,8 +90,8 @@ async function checkN_operateur(data, index) {
 async function checkN_enseigne(data, index) {
   if (data.hasOwnProperty("n_enseigne")) {
     if (data.n_enseigne === "") {
-      if (!indexUsableData.includes(index)) {
-        indexUsableData.push(index);
+      if (!indexFalseData.includes(index)) {
+        indexFalseData.push(index);
       }
     }
   }
@@ -120,6 +127,85 @@ async function checkNbre_pdc(data, index) {
     if (isNaN(data.nbre_pdc) || data.nbre_pdc === "") {
       if (!indexUsableData.includes(index)) {
         indexUsableData.push(index);
+      }
+    }
+  }
+}
+
+async function checkDatamaj(data, index) {
+  let regex = /^([0-2][0-9]|(3)[0-1])(\/)(((0)[0-9])|((1)[0-2]))(\/)\d{4}$/i;
+  if (data.hasOwnProperty("date_maj")) {
+    if (data.date_maj === "") {
+      if (!indexFalseData.includes(index)) {
+        indexFalseData.push(index);
+      }
+    } else if (data.date_maj.match(regex) === null) {
+      if (!indexUsableData.includes(index)) {
+        indexUsableData.push(index);
+      }
+    }
+  }
+}
+async function checkSource(data, index) {
+  let regex = /^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$/;
+  if (data.hasOwnProperty("source")) {
+    if (data.source === "") {
+      if (!indexUsableData.includes(index)) {
+        indexUsableData.push(index);
+      }
+    } else if (data.source.match(regex) === null) {
+      console.log(index);
+
+      if (!indexUsableData.includes(index)) {
+        indexUsableData.push(index);
+      }
+    } else {
+      try {
+        let response = await fetch(data.source);
+        if (response.status === 404) {
+          console.log(data.source, index);
+
+          if (!indexUsableData.includes(index)) {
+            indexUsableData.push(index);
+          }
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    }
+  }
+}
+
+async function check_geo_borne(data, index) {
+  if (data.hasOwnProperty("geo_point_borne")) {
+    if (data.geo_point_borne === "") {
+      if (!indexUsableData.includes(index)) {
+        indexUsableData.push(index);
+      }
+    } else {
+      let latitudeLongitude = data.geo_point_borne.split(",");
+      console.log(latitudeLongitude);
+      if (
+        (latitudeLongitude[0] >= 90 && latitudeLongitude[0] <= -90) ||
+        isNaN(latitudeLongitude[0])
+      ) {
+        if (!indexUsableData.includes(index)) {
+          indexUsableData.push(index);
+        }
+      } else if (
+        (latitudeLongitude[1] >= 180 && latitudeLongitude[1] <= -180) ||
+        isNaN(latitudeLongitude[1])
+      ) {
+        if (!indexUsableData.includes(index)) {
+          indexUsableData.push(index);
+        }
+      } else if (
+        latitudeLongitude[0] !== data.Ylatitude &&
+        latitudeLongitude[1] !== data.Xlongitude
+      ) {
+        if (!indexUsableData.includes(index)) {
+          indexUsableData.push(index);
+        }
       }
     }
   }
