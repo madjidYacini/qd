@@ -32,7 +32,7 @@
   {
     "id": 6,
     "code": "11",
-    "name": "\u00cele-de-France",
+    "name": "Ile-de-France",
     "slug": "ile de france"
   },
   {
@@ -92,13 +92,13 @@
   {
     "id": 16,
     "code": "84",
-    "name": "Auvergne-Rh\u00f4ne-Alpes",
+    "name": "Auvergne-Rhône-Alpes",
     "slug": "auvergne rhone alpes"
   },
   {
     "id": 17,
     "code": "93",
-    "name": "Provence-Alpes-C\u00f4te d'Azur",
+    "name": "Provence-Alpes-Côte d'Azur",
     "slug": "provence alpes cote dazur"
   },
   {

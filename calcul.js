@@ -1,12 +1,16 @@
 var csvjson = require("csvjson");
 var fs = require("fs");
 const fetch = require("node-fetch");
+var _ = require("lodash");
+var cities_insee = require("./cities.json");
+var regions = require("./regions.json");
 
 var options = {
   delimiter: ";", // optional
   quote: '"' // optional
 };
 var file_data = fs.readFileSync("./bornes-irve.csv", "utf-8");
+
 let indexFalseData = [];
 let indexUsableData = [];
 var result = csvjson.toObject(file_data, options);
@@ -20,8 +24,10 @@ result.forEach((oneData, index) => {
   checkNbre_pdc(oneData, index);
   checkN_operateur(oneData, index);
   checkDatamaj(oneData, index);
-  // checkSource(oneData, index);
+  checkSource(oneData, index);
   check_geo_borne(oneData, index);
+  checkCode_insee_commune(oneData, index);
+  checkRegion(oneData, index);
 });
 console.log(indexUsableData.length, indexFalseData.length);
 setTimeout(() => {
@@ -115,7 +121,10 @@ async function checkId_station_idPdc(data, index) {
 async function checkCode_insee(data, index) {
   let regex = /^\d{1,2}( )?\d{3}$/;
   if (data.hasOwnProperty("code_insee")) {
-    if (data.code_insee.match(regex) === null) {
+    let inseeCheck = _.find(cities_insee, {
+      insee_code: data.code_insee
+    });
+    if (inseeCheck === undefined) {
       if (!indexUsableData.includes(index)) {
         indexUsableData.push(index);
       }
@@ -154,8 +163,6 @@ async function checkSource(data, index) {
         indexUsableData.push(index);
       }
     } else if (data.source.match(regex) === null) {
-      console.log(index);
-
       if (!indexUsableData.includes(index)) {
         indexUsableData.push(index);
       }
@@ -163,8 +170,6 @@ async function checkSource(data, index) {
       try {
         let response = await fetch(data.source);
         if (response.status === 404) {
-          console.log(data.source, index);
-
           if (!indexUsableData.includes(index)) {
             indexUsableData.push(index);
           }
@@ -184,7 +189,6 @@ async function check_geo_borne(data, index) {
       }
     } else {
       let latitudeLongitude = data.geo_point_borne.split(",");
-      console.log(latitudeLongitude);
       if (
         (latitudeLongitude[0] >= 90 && latitudeLongitude[0] <= -90) ||
         isNaN(latitudeLongitude[0])
@@ -206,6 +210,44 @@ async function check_geo_borne(data, index) {
         if (!indexUsableData.includes(index)) {
           indexUsableData.push(index);
         }
+      }
+    }
+  }
+}
+
+async function checkCode_insee_commune(data, index) {
+  if (data.code_insee_commune === " " || isNaN(data.code_insee_commune)) {
+    if (!indexUsableData.includes(index)) {
+      indexUsableData.push(index);
+    }
+  } else if (data.code_insee_commune.length != 5) {
+    if (!indexUsableData.includes(index)) {
+      indexUsableData.push(index);
+    }
+  } else {
+    let inseeCheck = _.find(cities_insee, {
+      insee_code: data.code_insee_commune
+    });
+    if (inseeCheck === undefined) {
+      if (!indexUsableData.includes(index)) {
+        indexUsableData.push(index);
+      }
+    }
+  }
+}
+
+async function checkRegion(data, index) {
+  if (data.Région === "") {
+    if (!indexUsableData.includes(index)) {
+      indexUsableData.push(index);
+    }
+  } else {
+    let regioncheck = _.find(regions, {
+      name: data.Région
+    });
+    if (regioncheck === undefined) {
+      if (!indexUsableData.includes(index)) {
+        indexUsableData.push(index);
       }
     }
   }
